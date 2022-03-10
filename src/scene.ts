@@ -5,6 +5,8 @@ import Stats from "three/examples/jsm/libs/stats.module"
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { positionShader, velocityShader, vertexShader, fragmentShader } from "./shaders"
 
+const raycaster = new THREE.Raycaster();
+const pointSize = 4 * window.devicePixelRatio;
 
 var renderer: THREE.WebGLRenderer;
 var scene: THREE.Scene;
@@ -15,14 +17,12 @@ var positionVariable: any;
 var uniforms: any;
 var geo: THREE.BufferGeometry;
 
-const raycaster = new THREE.Raycaster();
-
 init();
 animate();
 
-/*
-	* Initializes the sketch
-	*/
+/**
+ * Initializes the sketch
+ */
 function init() {
 	// Initialize the WebGL renderer
 	renderer = new THREE.WebGLRenderer({
@@ -40,7 +40,7 @@ function init() {
 	scene = new THREE.Scene();
 
 	// Initialize the camera
-	camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+	camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 500);
 	camera.position.z = 10;
 
 	// Initialize the camera controls
@@ -57,33 +57,31 @@ function init() {
 		geo = geometry;
 		let nParticles = geometry.getAttribute("position").count
 		let dim = Math.round(Math.sqrt(nParticles)); // round ensures the textures can hold all the values
-	
+		console.log(dim);
 		// Initialize the simulator
 
 		// Define the particle shader uniforms
 		uniforms = {
-			u_ViewHeight : {
-				type : "f",
-				value : window.innerHeight
+			u_ViewHeight: {
+				type: "f",
+				value: window.innerHeight
 			},
 			u_ParticleSize : {
-				type : "f",
-				value : 4 * window.devicePixelRatio * (window.innerHeight / 1080.0)
+				type: "f",
+				value: pointSize * (window.innerHeight / 1080.0)
 			},
-			u_PositionDimensions : {
-				value : {
-					x: dim,
-					y: dim,
-				}
+			u_PositionDimensions: {
+				type: "f",
+				value: dim,
 			},
-			u_PositionTexture : {
-				type : "t",
-				value : null
+			u_PositionTexture: {
+				type: "t",
+				value: null
 			},
 			u_Ray: {
 				value: {
-					origin: raycaster.ray.origin,
-					direction: raycaster.ray.direction
+					origin: camera.position,
+					direction: new THREE.Vector3(0, 0, 0)
 				}
 			}
 		};
@@ -102,6 +100,10 @@ function init() {
 		for (var i = 0; i < nParticles; i++) {
 			indices[i] = i;
 		} 
+	
+		simulator = getSimulator(dim, renderer);
+		positionVariable = getSimulationVariable("u_PositionTexture", simulator);
+
 		// Create the particles and add them to the scene
 		var particles = new THREE.Points(geo, material);
 		scene.add(particles);
@@ -109,24 +111,19 @@ function init() {
 		let bb = new THREE.Box3();
 		bb.setFromObject(particles);
 		bb.getCenter(controls.target);
-
-		simulator = getSimulator(dim, dim, renderer);
-		positionVariable = getSimulationVariable("u_PositionTexture", simulator);
 	})
-
-	
 
 	// Add the event listeners
 	window.addEventListener("resize", onWindowResize, false);
 	window.addEventListener("pointermove", onPointerMove, false);
 }
 
-/*
-	* Initializes and returns the GPU simulator
-	*/
-function getSimulator(sizeX: number, sizeY: number, renderer: THREE.WebGLRenderer) {
+/**
+ * Initializes and returns the GPU simulator
+ */
+function getSimulator(dim: number, renderer: THREE.WebGLRenderer) {
 	// Create a new GPU simulator instance
-	var gpuSim = new GPUComputationRenderer(sizeX, sizeY, renderer);
+	var gpuSim = new GPUComputationRenderer(dim, dim, renderer);
 
 	// Create the position and the velocity textures
 	var positionTexture = gpuSim.createTexture();
@@ -159,10 +156,9 @@ function getSimulator(sizeX: number, sizeY: number, renderer: THREE.WebGLRendere
 	}
 	return gpuSim;
 }
-
-/*
-	* Sets the simulation initial conditions
-	*/
+/**
+ * Sets the simulation initial conditions
+ */
 function setInitialConditions(positionTexture: THREE.DataTexture, velocityTexture: THREE.DataTexture) {
 	// Get the position and velocity arrays
 	var position = positionTexture.image.data;
@@ -188,9 +184,9 @@ function setInitialConditions(positionTexture: THREE.DataTexture, velocityTextur
 	}
 }
 
-/*
-	* Returns the requested simulation variable
-	*/
+/**
+ * Returns the requested simulation variable
+ */
 function getSimulationVariable(variableName: string, gpuSim: any) {
 	for (var i = 0; i < gpuSim.variables.length; i++) {
 		if (gpuSim.variables[i].name === variableName) {
@@ -200,51 +196,54 @@ function getSimulationVariable(variableName: string, gpuSim: any) {
 	return null;
 }
 
-/*
-	* Animates the sketch
-	*/
+/**
+ * Animates the sketch
+ */
 function animate() {
 	requestAnimationFrame(animate);
 	render();
 	stats.update();
 }
 
-/*
-	* Renders the sketch
-	*/
+/**
+ * Renders the sketch
+ */
 function render() {
 	// Run several iterations per frame
 	for (var i = 0; i < 1; i++) {
 		simulator.compute();
 	}
-
 	// Update the uniforms
-	uniforms.u_Ray = {
-		value: {
-			origin: raycaster.ray.origin,
-			direction: raycaster.ray.direction,
-		}
-	}
+	
 	uniforms.u_PositionTexture.value = simulator.getCurrentRenderTarget(positionVariable).texture;
 
 	// Render the particles on the screen
 	renderer.render(scene, camera);
 }
 
-/*
-	* Updates the renderer size and the camera aspect ratio when the window is resized
-	*/
+/**
+ * Updates the renderer size and the camera aspect ratio when the window is resized
+ */
 function onWindowResize(_event: any) {
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
 	renderer.setSize(window.innerWidth, window.innerHeight);
-	uniforms.u_ParticleSize.value = 4 * window.devicePixelRatio * (window.innerHeight / 1080.0);
-	console.log(uniforms.u_ViewHeight);
+	
+	uniforms.u_ParticleSize.value = pointSize * (window.innerHeight / 1080.0);
 }
 
+/**
+ * 
+ * @param event 
+ */
 function onPointerMove(event: any) {
 	raycaster.setFromCamera({
 		x: (event.clientX / window.innerWidth) * 2 - 1,
-		y: (event.clientY / window.innerHeight) * 2 + 1,
+		y: -(event.clientY / window.innerHeight) * 2 + 1,
 	}, camera);
+
+	uniforms.u_Ray.value = {
+		origin: raycaster.ray.origin,
+		direction: raycaster.ray.direction,
+	}
 }
