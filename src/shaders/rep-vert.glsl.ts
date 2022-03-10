@@ -6,8 +6,8 @@ export const vertexShader = `
         vec3 direction;
     };
 
-    attribute float index;
-    attribute vec3 color;
+    in float index;
+    in vec3 color;
 
     uniform float u_ParticleSize;
     uniform sampler2D u_PositionTexture;
