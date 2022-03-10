@@ -39,7 +39,7 @@ export const velocityShader = `
 
         vec3 force = vec3(0.0);
 
-        
+
         gl_FragColor = vec4(velocity + u_Dt * force, 1.0);
     }
 `

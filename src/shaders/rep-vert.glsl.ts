@@ -48,7 +48,7 @@ export const vertexShader = `
             v_Color = -orth;
             if (length(orth) < .1) v_Color = vec3(255);
         }
-        
+
         gl_PointSize = -u_ParticleSize / viewPosition.z;
         gl_Position = projectionMatrix * viewPosition;
     }

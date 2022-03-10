@@ -13,7 +13,7 @@ var scene: THREE.Scene;
 var camera: THREE.PerspectiveCamera;
 var stats: Stats
 var simulator: any;
-var positionVariable: any; 
+var positionVariable: any;
 var uniforms: any;
 var geo: THREE.BufferGeometry;
 
@@ -99,8 +99,8 @@ function init() {
 		geo.setAttribute("index", new THREE.BufferAttribute(indices, 1));
 		for (var i = 0; i < nParticles; i++) {
 			indices[i] = i;
-		} 
-	
+		}
+
 		simulator = getSimulator(dim, renderer);
 		positionVariable = getSimulationVariable("u_PositionTexture", simulator);
 
@@ -214,7 +214,7 @@ function render() {
 		simulator.compute();
 	}
 	// Update the uniforms
-	
+
 	uniforms.u_PositionTexture.value = simulator.getCurrentRenderTarget(positionVariable).texture;
 
 	// Render the particles on the screen
@@ -228,13 +228,13 @@ function onWindowResize(_event: any) {
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
 	renderer.setSize(window.innerWidth, window.innerHeight);
-	
+
 	uniforms.u_ParticleSize.value = pointSize * (window.innerHeight / 1080.0);
 }
 
 /**
- * 
- * @param event 
+ *
+ * @param event
  */
 function onPointerMove(event: any) {
 	raycaster.setFromCamera({

@@ -1,6 +1,6 @@
 export const positionShader = `
     // FRAGMENT SHADER
-    
+
     // Simulation uniforms
     uniform float u_Dt;
 
