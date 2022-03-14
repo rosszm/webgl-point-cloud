@@ -1,0 +1,1 @@
+export {init, render} from "./world";

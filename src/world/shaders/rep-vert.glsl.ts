@@ -11,7 +11,7 @@ export const vertexShader = `
 
     uniform float u_ParticleSize;
     uniform sampler2D u_PositionTexture;
-    uniform float u_PositionDimensions;
+    uniform float u_TextureSize;
     uniform ray3 u_Ray;
 
     out vec3 v_Color;
@@ -19,10 +19,10 @@ export const vertexShader = `
     /// Returns the position of a particle from a 2D Texture.
     ///
     /// tex - the 2D texture
-    /// dim - the dimensions of the texture
+    /// size - the size of the texture
     /// i - the index of the particle
-    vec4 positionFromTexture2D(sampler2D tex, float dim, float i) {
-        vec2 texCoord = (vec2(mod(i, dim), floor(i / dim)) + .5) / vec2(dim);
+    vec4 positionFromTexture2D(sampler2D tex, float size, float i) {
+        vec2 texCoord = (vec2(mod(i, size), floor(i / size)) + .5) / vec2(size);
         return texture2D(tex, texCoord);
     }
 
@@ -37,15 +37,15 @@ export const vertexShader = `
     /// The main program.
     void main() {
         // Get the point model view position
-        vec4 position = positionFromTexture2D(u_PositionTexture, u_PositionDimensions, index);
+        vec4 position = positionFromTexture2D(u_PositionTexture, u_TextureSize, index);
         vec4 worldPosition = modelMatrix * position;
         vec4 viewPosition = modelViewMatrix * position;
 
         // Vertex shader output
         v_Color = color;
         vec3 orth = projectOnRayT(worldPosition.xyz, u_Ray);
-        if (length(orth) < 1.0) {
-            v_Color = -orth;
+        if (length(orth) < .5) {
+            v_Color = -orth * 1.5;
             if (length(orth) < .1) v_Color = vec3(255);
         }
 
