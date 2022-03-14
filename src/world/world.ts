@@ -3,6 +3,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { ParticleSimulator } from "./components/simulator";
 import * as Particles from "./components/particles";
 import { getCamera } from "./components/camera";
+import modelURL from "../../models/scene.ply?url";
 
 
 const raycaster = new THREE.Raycaster(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0));
@@ -19,7 +20,7 @@ let simulator: ParticleSimulator;
  */
 export async function init() {
 	/// start loading particle geometry.
-	Particles.loadFromModel("../models/scene.ply", onModelProgress).then(addParticles);
+	Particles.loadFromModel(modelURL, onModelProgress).then(addParticles);
 
 	renderer = new THREE.WebGLRenderer({antialias : true});
 	renderer.setPixelRatio(window.devicePixelRatio);
@@ -53,6 +54,7 @@ export async function init() {
  * @param particles the particles to be added
  */
 function addParticles(particles: THREE.Points) {
+	particles.rotateX(2.9);
 	simulator = new ParticleSimulator(particles.geometry, renderer);
 	Particles.setPositionTextureSize(simulator.size);
 

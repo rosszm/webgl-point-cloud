@@ -2,6 +2,8 @@
 Experimental particle simulation with point clouds using WebGL2 shaders and
 [three.js](https://threejs.org/).
 
+[Live demo](https://rosszm.github.io/webgl-point-cloud)
+
 ## Build
 Download the git repository:
 ```sh
