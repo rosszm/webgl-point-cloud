@@ -1,4 +1,4 @@
-import THREE from "three";
+import * as THREE from "three";
 import { GPUComputationRenderer, Variable } from "three/examples/jsm/misc/GPUComputationRenderer";
 import { positionShader, velocityShader } from "../shaders";
 
@@ -21,21 +21,26 @@ export interface ShaderVariable {
 }
 
 export class ParticleSimulator {
-  gpuCompute: GPUComputationRenderer;
-  position: Variable;
-  velocity: Variable;
   size: number;
+
+  private gpuCompute: GPUComputationRenderer;
+  private position: Variable;
+  private velocity: Variable;
+  private raycaster: THREE.Raycaster;
+  private particles: THREE.Points;
 
   /**
    * Creates a new Particle Simulator.
-   * @param geometry a geometry where vertices represent individual particles
+   * @param particles a geometry where vertices represent individual particles
    * @param renderer the WebGL renderer
    */
-  constructor(geometry: THREE.BufferGeometry, renderer: THREE.WebGLRenderer) {
-    this.size = Math.round(Math.sqrt(geometry.getAttribute("position").count));
+  constructor(particles: THREE.Points, renderer: THREE.WebGLRenderer) {
+    this.raycaster = new THREE.Raycaster(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0));
+    this.particles = particles;
+    this.size = Math.round(Math.sqrt(particles.geometry.getAttribute("position").count));
     this.gpuCompute = new GPUComputationRenderer(this.size, this.size, renderer);
 
-    let tex = this.getDataTextures(geometry);
+    let tex = this.getDataTextures();
     this.position = this.gpuCompute.addVariable("u_PositionTexture", positionShader, tex.position),
     this.velocity = this.gpuCompute.addVariable("u_VelocityTexture", velocityShader, tex.velocity),
 
@@ -44,6 +49,7 @@ export class ParticleSimulator {
 
     this.position.material.uniforms.u_Dt = {value: DELTA_TIME};
     this.velocity.material.uniforms.u_Dt = {value : DELTA_TIME};
+    this.velocity.material.uniforms.u_OriginPositionTexture = {value: tex.position};
 
     let error = this.gpuCompute.init();
     if (error) {
@@ -52,11 +58,9 @@ export class ParticleSimulator {
   }
 
   /**
-   * Returns the position and velocity data textures created from given geometry.
-   *
-   * @param geometry a geometry where each vertex represent a particle
+   * Returns the position and velocity data textures created from given particles geometry.
    */
-  private getDataTextures(geometry: THREE.BufferGeometry) {
+  private getDataTextures() {
     let textures = {
       position: this.gpuCompute.createTexture(),
       velocity: this.gpuCompute.createTexture(),
@@ -66,11 +70,13 @@ export class ParticleSimulator {
 
     // offset is 4 because texture values are stored as a vec4
     for (let i=0; i < positionData.length / 4; i++) {
-      let geometryPosition = geometry.getAttribute("position")
+      let geometryAttribute = this.particles.geometry.getAttribute("position");
+      let position = (new THREE.Vector3()).fromBufferAttribute(geometryAttribute, i);
       let particleIndex = 4 * i;
-      positionData[particleIndex] = geometryPosition.getX(i);
-      positionData[particleIndex + 1] = geometryPosition.getY(i);
-      positionData[particleIndex + 2] = geometryPosition.getZ(i);
+
+      positionData[particleIndex] = position.x;
+      positionData[particleIndex + 1] = position.y;
+      positionData[particleIndex + 2] = position.z;
       positionData[particleIndex + 3] = 1;
 
       // Start with zero initial velocity
@@ -95,6 +101,21 @@ export class ParticleSimulator {
 
     for (let i=0; i < n; i++) {
       this.gpuCompute.compute();
+    }
+  }
+
+  /**
+   * Updates the ray uniform with a new origin and direction.
+   * @param coords 2D coordinates of the mouse, in normalized device coordinates (NDC)
+   * @param camera camera from which the ray should originate
+   */
+  setRayFromCamera(coords: {x: number, y: number}, camera: THREE.Camera) {
+    this.raycaster.setFromCamera(coords, camera);
+    this.velocity.material.uniforms.u_Ray = {
+      value: {
+        origin: this.particles.worldToLocal(this.raycaster.ray.origin),
+        direction: this.particles.worldToLocal(this.raycaster.ray.direction),
+      }
     }
   }
 

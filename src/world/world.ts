@@ -6,14 +6,16 @@ import { getCamera } from "./components/camera";
 import modelURL from "../../models/scene.ply?url";
 
 
-const raycaster = new THREE.Raycaster(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0));
-
 let renderer: THREE.WebGLRenderer;
 let scene: THREE.Scene;
 let camera: THREE.PerspectiveCamera;
 let controls: OrbitControls;
 let simulator: ParticleSimulator;
-
+let zoom: number;
+let pointer: {
+	x: number,
+	y: number,
+}
 
 /**
  * Initializes the world.
@@ -45,7 +47,7 @@ export async function init() {
  * @param progress the load event
  */
  function onModelProgress(progress: ProgressEvent) {
-	console.log("progress: ", progress.loaded/progress.total * 100)
+	console.log("progress: ", progress.loaded / progress.total * 100)
 }
 
 /**
@@ -55,7 +57,7 @@ export async function init() {
  */
 function addParticles(particles: THREE.Points) {
 	particles.rotateX(2.9);
-	simulator = new ParticleSimulator(particles.geometry, renderer);
+	simulator = new ParticleSimulator(particles, renderer);
 	Particles.setPositionTextureSize(simulator.size);
 
 	// center camera on the particles
@@ -82,12 +84,13 @@ function addParticles(particles: THREE.Points) {
  * Updates the ray when the pointer is moved.
  */
 function onPointerMove(event: PointerEvent) {
-	raycaster.setFromCamera({
+	pointer = {
 		x: (event.clientX / window.innerWidth) * 2 - 1,
 		y: -(event.clientY / window.innerHeight) * 2 + 1,
-	}, camera);
-
-	Particles.setRay(raycaster.ray.origin, raycaster.ray.direction);
+	};
+	if (simulator) {
+		simulator.setRayFromCamera(pointer, camera);
+	}
 }
 
 /**
@@ -95,6 +98,8 @@ function onPointerMove(event: PointerEvent) {
  */
 export function render() {
 	if (simulator) {
+		detectCameraZoom();
+
 		simulator.compute();
 		Particles.setPositionTexture(simulator.getPositionTexture());
 	}
@@ -102,3 +107,12 @@ export function render() {
 	renderer.render(scene, camera);
 }
 
+function detectCameraZoom() {
+	let newZoom = controls.target.distanceTo(controls.object.position);
+	if (newZoom != zoom) {
+		if (pointer) {
+			simulator.setRayFromCamera(pointer, camera);
+		}
+		zoom = newZoom;
+	}
+}
