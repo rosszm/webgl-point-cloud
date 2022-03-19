@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { ParticleSimulator } from "./components/simulator";
+import { ParticleSimulator, Pointer } from "./components/simulator";
 import * as Particles from "./components/particles";
 import { getCamera } from "./components/camera";
 import modelURL from "../../models/scene.ply?url";
@@ -12,10 +12,8 @@ let camera: THREE.PerspectiveCamera;
 let controls: OrbitControls;
 let simulator: ParticleSimulator;
 let zoom: number;
-let pointer: {
-	x: number,
-	y: number,
-}
+let pointer: Pointer;
+
 
 /**
  * Initializes the world.
@@ -84,12 +82,19 @@ function addParticles(particles: THREE.Points) {
  * Updates the ray when the pointer is moved.
  */
 function onPointerMove(event: PointerEvent) {
-	pointer = {
+	let coords = {
 		x: (event.clientX / window.innerWidth) * 2 - 1,
 		y: -(event.clientY / window.innerHeight) * 2 + 1,
 	};
+	pointer = {
+		coords: coords,
+		movement: {
+			x: coords.x + event.movementX / window.innerWidth,
+			y: coords.y - event.movementY / window.innerHeight,
+		}
+	};
 	if (simulator) {
-		simulator.setRayFromCamera(pointer, camera);
+		simulator.setPointerFromCamera(pointer, camera);
 	}
 }
 
@@ -100,7 +105,7 @@ export function render() {
 	if (simulator) {
 		detectCameraZoom();
 
-		simulator.compute();
+		simulator.compute(3);
 		Particles.setPositionTexture(simulator.getPositionTexture());
 	}
 	// Render the particles on the screen
@@ -111,7 +116,7 @@ function detectCameraZoom() {
 	let newZoom = controls.target.distanceTo(controls.object.position);
 	if (newZoom != zoom) {
 		if (pointer) {
-			simulator.setRayFromCamera(pointer, camera);
+			simulator.setPointerFromCamera(pointer, camera);
 		}
 		zoom = newZoom;
 	}

@@ -3,30 +3,38 @@ import { GPUComputationRenderer, Variable } from "three/examples/jsm/misc/GPUCom
 import { positionShader, velocityShader } from "../shaders";
 
 
-const DELTA_TIME = 1.0;
+/** Represents a pointer/mouse in the screen space. */
+export interface Pointer {
+  /** The current 2D coordinates in normalized device coordinates (NDC). */
+  coords: {
+    x: number;
+    y: number;
+  };
+  /** The 2D movement vector. */
+  movement: {
+    x: number;
+    y: number;
+  };
+}
 
 
 /** Base error for the simulator module. */
 export class SimulatorError extends Error {};
 
-
-export interface SimulatorShaderVariables {
-  position: ShaderVariable;
-  velocity: ShaderVariable;
-}
-
-export interface ShaderVariable {
-  name: string;
-  shader: string;
-}
-
+/**
+ * Particle Simulator.
+ *
+ * Simulates the mouse/pointer repulsion effect on a point cloud.
+ */
 export class ParticleSimulator {
   size: number;
+  deltaTime: number;
 
   private gpuCompute: GPUComputationRenderer;
   private position: Variable;
   private velocity: Variable;
   private raycaster: THREE.Raycaster;
+  private pointerDirection: THREE.Vector3;
   private particles: THREE.Points;
 
   /**
@@ -35,8 +43,12 @@ export class ParticleSimulator {
    * @param renderer the WebGL renderer
    */
   constructor(particles: THREE.Points, renderer: THREE.WebGLRenderer) {
-    this.raycaster = new THREE.Raycaster(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0));
     this.particles = particles;
+    this.deltaTime = 1.0;
+
+    this.raycaster = new THREE.Raycaster(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0));
+    this.pointerDirection = new THREE.Vector3();
+
     this.size = Math.round(Math.sqrt(particles.geometry.getAttribute("position").count));
     this.gpuCompute = new GPUComputationRenderer(this.size, this.size, renderer);
 
@@ -47,8 +59,8 @@ export class ParticleSimulator {
     this.gpuCompute.setVariableDependencies(this.position, [this.position, this.velocity]);
     this.gpuCompute.setVariableDependencies(this.velocity, [this.position, this.velocity]);
 
-    this.position.material.uniforms.u_Dt = {value: DELTA_TIME};
-    this.velocity.material.uniforms.u_Dt = {value : DELTA_TIME};
+    this.position.material.uniforms.u_Dt = {value: this.deltaTime};
+    this.velocity.material.uniforms.u_Dt = {value : this.deltaTime};
     this.velocity.material.uniforms.u_OriginPositionTexture = {value: tex.position};
 
     let error = this.gpuCompute.init();
@@ -105,17 +117,24 @@ export class ParticleSimulator {
   }
 
   /**
-   * Updates the ray uniform with a new origin and direction.
-   * @param coords 2D coordinates of the mouse, in normalized device coordinates (NDC)
-   * @param camera camera from which the ray should originate
+   * Updates the pointer within this simulation.
+   * @param pointer the new pointer values.
+   * @param camera the camera from which the pointer is projected
    */
-  setRayFromCamera(coords: {x: number, y: number}, camera: THREE.Camera) {
-    this.raycaster.setFromCamera(coords, camera);
+  setPointerFromCamera(pointer: Pointer, camera: THREE.Camera) {
+    this.raycaster.setFromCamera(pointer.movement, camera);
+    this.pointerDirection.copy(this.raycaster.ray.direction);
+    this.raycaster.setFromCamera(pointer.coords, camera);
+    this.pointerDirection.sub(this.raycaster.ray.direction);
+
     this.velocity.material.uniforms.u_Ray = {
       value: {
         origin: this.particles.worldToLocal(this.raycaster.ray.origin),
         direction: this.particles.worldToLocal(this.raycaster.ray.direction),
       }
+    }
+    this.velocity.material.uniforms.u_PointerDirection = {
+      value: this.particles.worldToLocal(this.pointerDirection)
     }
   }
 
