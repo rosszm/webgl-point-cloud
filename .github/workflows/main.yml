@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           ref: ${{github.head_ref}}
 
@@ -16,7 +16,7 @@ jobs:
         run: git lfs pull
 
       - name: Use Node.js ${{matrix.node-version}}
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v6
         with:
             node-version: ${{matrix.node-version}}
             cache: "yarn"
